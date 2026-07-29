@@ -1,12 +1,8 @@
-#include "xdg-shell-client-protocol.h"
 #include <stdio.h>
 #include <string.h>
-#include <wayland-client.h>
 
-struct globals {
-  struct wl_compositor *compositor;
-  struct wl_shm *shm;
-};
+#include "xdg-shell-client-protocol.h"
+#include <wayland-client.h>
 
 struct globals {
   struct wl_compositor *compositor;
@@ -26,12 +22,12 @@ static void registry_global(void *data, struct wl_registry *registry,
         wl_registry_bind(registry, name, &wl_compositor_interface, 4);
   }
 
-  if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-    g->wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+  else if (strcmp(interface, wl_shm_interface.name) == 0) {
+    g->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
   }
 
-  if (strcmp(interface, wl_shm_interface.name) == 0) {
-    g->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+  else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+    g->wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
   }
 }
 
@@ -63,23 +59,30 @@ int main(void) {
 
   wl_display_roundtrip(display);
 
-  struct wl_surface *surface = wl_compositor_create_surface(globals.compositor);
-
-  if (!surface) {
-    fprintf(stderr, "Failed to create surface\n");
+  if (!globals.compositor) {
+    fprintf(stderr, "No wl_compositor found.\n");
     return 1;
   }
 
-  printf("Surface created!\n");
+  if (!globals.wm_base) {
+    fprintf(stderr, "No xdg_wm_base found.\n");
+    return 1;
+  }
+
+  struct wl_surface *surface = wl_compositor_create_surface(globals.compositor);
+
+  if (!surface) {
+    fprintf(stderr, "Failed to create surface.\n");
+    return 1;
+  }
 
   printf("\n");
+  printf("Got wl_compositor\n");
+  printf("Got wl_shm\n");
+  printf("Got xdg_wm_base\n");
+  printf("Surface created!\n");
 
-  if (globals.compositor)
-    printf("Got wl_compositor\n");
-
-  if (globals.shm)
-    printf("Got wl_shm\n");
-
+  wl_surface_destroy(surface);
   wl_registry_destroy(registry);
   wl_display_disconnect(display);
 
